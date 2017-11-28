@@ -1,16 +1,14 @@
-import org.specs2.Specification
+import org.scalatest.{Matchers, WordSpec}
 
-class UtilsSpec extends Specification {
+class UtilsSpec extends WordSpec with Matchers {
 
-  def is = s2"""
-
-    This is the specifcartion to check Utils class
-
-    The randomString should
-      generate numeric string only                        $e1
-      generate string with the specified length           $e2
-                                                          """
-
-  def e1 = Utils.randomString(8) must beMatching("[0-9]+$")
-  def e2 = Utils.randomString(20) must have length(20)
+  "Utils.randomString" should {
+    val str = Utils.randomString(8)
+    "generate numeric string only" in {
+      str.matches("[0-9]+$")
+    }
+    "generate string with the specified length" in {
+      str.length == 8
+    }
+  }
 }

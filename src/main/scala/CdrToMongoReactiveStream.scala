@@ -1,74 +1,79 @@
 import akka.actor.ActorSystem
-import akka.stream.{ActorMaterializer, ThrottleMode}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
+import akka.stream.{ActorMaterializer, ThrottleMode}
+import akka.{Done, NotUsed}
 import com.mongodb.WriteConcern
 import com.mongodb.client.model.InsertOneModel
 import com.mongodb.reactivestreams.client.{MongoClients, MongoCollection}
-import spray.json._
-import com.typesafe.scalalogging._
 import com.typesafe.config._
+import com.typesafe.scalalogging._
 import org.bson.Document
+import spray.json._
 
-import scala.concurrent.{Await, Future}
+import scala.collection.JavaConverters._
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
-import collection.JavaConverters._
+import reactivemongo.akkastream._
+import reactivemongo.api._
+import reactivemongo.api.collections.bson.BSONCollection
+import reactivemongo.bson._
 
-object CdrToMongoReactiveStream extends App {
+object CdrToMongoReactiveStream {
 
-  implicit val system = ActorSystem("cdr-data-generator")
-  implicit val materializer = ActorMaterializer()
-  implicit val executionContext=materializer.executionContext
-  import RandomCdrJsonProtocol._
+  def randomCdrThrottledSource(msisdnLength : Int,timeRange : Int, throughput : Int): Source[RandomCdr,NotUsed]= {
+    Source
+      .fromIterator(() => Iterator.continually(RandomCdr(msisdnLength,timeRange)))
+      .throttle(throughput,1.second,1,ThrottleMode.shaping)
+      .named("randomCdrThrottledSource")
+  }
 
-  val generatorConfig = ConfigFactory.load().getConfig("generator")
-  val msisdnLength = generatorConfig.getInt("msisdn-length")
-  val bulkSize= generatorConfig.getInt("bulkSize")
-  val throughput = generatorConfig.getInt("throughput-per-second")
-  val invalidLineProbability = generatorConfig.getDouble("invalid-line-probability")
-  val timeRange = generatorConfig.getInt("cdr.timeRange")
+  def mongodbBulkSink(collection : Future[BSONCollection], bulkSize : Int, ec: ExecutionContext) : Sink[RandomCdr,Future[Done]] = {
 
-  val mongoConfig = ConfigFactory.load().getConfig("mongodb")
-  val mongoHost = mongoConfig.getString("host")
-  val mongoPort = mongoConfig.getInt("port")
-  val authenticationDB = mongoConfig.getString("authenticationDatabase")
-  val username = mongoConfig.getString("username")
-  val password = mongoConfig.getString("password")
-  val databaseName = mongoConfig.getString("database")
-  val collectionName = mongoConfig.getString("collection")
+    implicit def randomCdrWriter: BSONDocumentWriter[RandomCdr] = Macros.writer[RandomCdr]
 
-  val credentials = if (username != "") username+":"+password+"@" else ""
-  val authenticationSource = if (username != "") "/?authSource="+authenticationDB else ""
-
-  val mongoUri = "mongodb://"+credentials+mongoHost+":"+mongoPort+authenticationSource
-  val collection: MongoCollection[Document] =
-    MongoClients.create(mongoUri)
-      .getDatabase(databaseName)
-      .getCollection(collectionName)
-      .withWriteConcern(WriteConcern.MAJORITY)
-
-  val logger = Logger("cdr-data-generator")
-  logger.info("Starting generation")
-
-  val randomCdrThrottledSource = Source
-    .fromIterator(() => Iterator.continually(RandomCdr(msisdnLength,timeRange)))
-    .throttle(throughput,1.second,1,ThrottleMode.shaping)
-    .named("randomCdrThrottledSource")
-
-  val cdrJsonParseFlow = Flow[RandomCdr]
-    .map((cdr: RandomCdr) => cdr.toJson.toString())
-    .named("cdrJsonParseFlow")
-
-  val mongodbBulkSink = Flow[String]
-    .map((json: String) => Document.parse(json))
-    .map((doc: Document) => new InsertOneModel[Document](doc))
-    .grouped(bulkSize)
-    .flatMapConcat { (docs: Seq[InsertOneModel[Document]]) ⇒
-      Source.fromPublisher(collection.bulkWrite(docs.toList.asJava))
-    }
-    .toMat(Sink.ignore)(Keep.both)
+    Flow[RandomCdr]
+      .grouped(bulkSize).async
+      .toMat(Sink.foreach{ (bulk: Seq[RandomCdr]) =>
+        collection.flatMap(_.insert[RandomCdr](false)(randomCdrWriter,ec).many(bulk)(ec))(ec)
+      })(Keep.right)
+  }
 
 
-  val f = randomCdrThrottledSource.via(cdrJsonParseFlow).to(mongodbBulkSink).run()
+  def main(args: Array[String]): Unit = {
 
-  logger.info("Generated random data")
+    implicit val system = ActorSystem("cdr-data-generator")
+    implicit val materializer = ActorMaterializer()
+    implicit val executionContext = materializer.executionContext
+
+    val generatorConfig = ConfigFactory.load().getConfig("generator")
+    val msisdnLength = generatorConfig.getInt("msisdn-length")
+    val bulkSize = generatorConfig.getInt("bulkSize")
+    val throughput = generatorConfig.getInt("throughput-per-second")
+    val invalidLineProbability = generatorConfig.getDouble("invalid-line-probability")
+    val timeRange = generatorConfig.getInt("cdr.timeRange")
+
+    val mongoConfig = ConfigFactory.load().getConfig("mongodb")
+    val mongoHost = mongoConfig.getString("host")
+    val mongoPort = mongoConfig.getInt("port")
+    val authenticationDB = mongoConfig.getString("authenticationDatabase")
+    val username = mongoConfig.getString("username")
+    val password = mongoConfig.getString("password")
+    val databaseName = mongoConfig.getString("database")
+    val collectionName = mongoConfig.getString("collection")
+
+    val credentials = if (username != "") username + ":" + password + "@" else ""
+    val authenticationSource = if (username != "") "/" + authenticationDB else ""
+    val mongoUri = "mongodb://" + credentials + mongoHost + ":" + mongoPort + authenticationSource
+    val driver = new reactivemongo.api.MongoDriver()
+    val collection = driver.connection(mongoUri).get.database(databaseName).map(_.collection(collectionName))
+
+    val logger = Logger("cdr-data-generator")
+    logger.info("Starting generation")
+
+    val f = randomCdrThrottledSource(msisdnLength,timeRange,throughput)
+      .runWith(mongodbBulkSink(collection,bulkSize,executionContext))
+
+    f.onComplete( r => println("bulkWrite done :"+r.isSuccess.toString))
+    logger.info("Generated random data")
+  }
 }

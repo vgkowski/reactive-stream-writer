@@ -1,33 +1,35 @@
 import java.util.Calendar
 
-import org.specs2.Specification
+import org.scalatest.{Matchers, WordSpec}
 
+class RandomCdrSpec extends WordSpec with Matchers {
 
-class RandomCdrSpec extends Specification {
-  def is = s2"""
-
-    This is the specification to check the RandonCdr class
-
-    The RandomCdr should
-      generate MSISDN of the specified size              $e1
-      generate MSISDN with only numeric character        $e2
-      generate dateTime in the specified range           $e3
-      generate peer MSISDN of the specified size or NONE $e4
-      generate peer MSISDN with only numeric character   $e5
-      generate callType of VOICE or SMS or DATA          $e6
-      generate way of IN or OUT                          $e7
-      generate duration lower than 500                   $e8
-      generate
-                                                         """
-  val cdr = RandomCdr(8,86400000)
-  val maxDateTime=Calendar.getInstance().getTimeInMillis()-86400000
-
-  def e1 = cdr.msisdn must have length(12)
-  def e2 = cdr.msisdn must beMatching("\\+[0-9]+$")
-  def e3 = cdr.dateTime must beGreaterThan(maxDateTime)
-  def e4 = cdr.peer must have length(12) or beEqualTo("NONE")
-  def e5 = cdr.peer must beMatching("\\+[0-9]+$") or beEqualTo("NONE")
-  def e6 = cdr.callType must beEqualTo("VOICE") or beEqualTo("SMS") or beEqualTo("DATA")
-  def e7 = cdr.way must beEqualTo("IN") or beEqualTo("OUT")
-  def e8 = cdr.duration must beLessThan(500)
+  "RandomCdr.apply" should {
+    val cdr = RandomCdr(8,86400000)
+    val maxDateTime=Calendar.getInstance().getTimeInMillis()-86400000
+    "generate MSISDN of the specified size" in {
+      cdr.msisdn.length == 12
+    }
+    "generate MSISDN with only numeric character" in {
+      cdr.msisdn.matches("\\+[0-9]+$")
+    }
+    "generate dateTime in the specified range" in {
+      cdr.dateTime > maxDateTime
+    }
+    "generate peer MSISDN of the specified size or NONE" in {
+      (cdr.peer.length == 12) || (cdr.peer == "NONE")
+    }
+    "generate peer MSISDN with only numeric character or NONE" in {
+      (cdr.peer.matches("\\+[0-9]+$")) || (cdr.peer == "NONE")
+    }
+    "generate callType of VOICE or SMS or DATA " in {
+      Seq("VOICE", "SMS", "DATA").contains(cdr.callType)
+    }
+    "generate way of IN or OUT" in {
+      Seq("IN", "OUT").contains(cdr.way)
+    }
+    "generate duration lower than 500" in {
+      cdr.duration < 500
+    }
+  }
 }
