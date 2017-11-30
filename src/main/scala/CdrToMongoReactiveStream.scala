@@ -20,6 +20,8 @@ import reactivemongo.bson._
 
 object CdrToMongoReactiveStream {
 
+  implicit def randomCdrWriter: BSONDocumentWriter[RandomCdr] = Macros.writer[RandomCdr]
+
   def randomCdrThrottledSource(msisdnLength : Int,timeRange : Int, throughput : Int): Source[RandomCdr,NotUsed]= {
     Source
       .fromIterator(() => Iterator.continually(RandomCdr(msisdnLength,timeRange)))
@@ -29,10 +31,8 @@ object CdrToMongoReactiveStream {
 
   def mongodbBulkSink(collection : Future[BSONCollection], bulkSize : Int, ec: ExecutionContext) : Sink[RandomCdr,Future[Done]] = {
 
-    implicit def randomCdrWriter: BSONDocumentWriter[RandomCdr] = Macros.writer[RandomCdr]
-
     Flow[RandomCdr]
-      .grouped(bulkSize).async
+      .grouped(bulkSize)
       .toMat(Sink.foreach{ (bulk: Seq[RandomCdr]) =>
         collection.flatMap(_.insert[RandomCdr](false)(randomCdrWriter,ec).many(bulk)(ec))(ec)
       })(Keep.right)
@@ -44,6 +44,8 @@ object CdrToMongoReactiveStream {
     implicit val system = ActorSystem("cdr-data-generator")
     implicit val materializer = ActorMaterializer()
     implicit val executionContext = materializer.executionContext
+
+    val logger = Logger("cdr-data-generator")
 
     val generatorConfig = ConfigFactory.load().getConfig("generator")
     val msisdnLength = generatorConfig.getInt("msisdn-length")
@@ -67,7 +69,6 @@ object CdrToMongoReactiveStream {
     val driver = new reactivemongo.api.MongoDriver()
     val collection = driver.connection(mongoUri).get.database(databaseName).map(_.collection(collectionName))
 
-    val logger = Logger("cdr-data-generator")
     logger.info("Starting generation")
 
     val f = randomCdrThrottledSource(msisdnLength,timeRange,throughput)

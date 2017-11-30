@@ -37,19 +37,25 @@ class CdrToMongoReactiveStreamSpec extends WordSpec with Matchers {
 
   "mongoBulkSink" should {
     "bulk write json document to MongoDB" in {
+      implicit def randomCdrReader: BSONDocumentReader[RandomCdr] = Macros.reader[RandomCdr]
+      implicit def randomCdrWriter: BSONDocumentWriter[RandomCdr] = Macros.writer[RandomCdr]
+
       val (probe, future) = TestSource.probe[RandomCdr]
         .toMat(mongodbBulkSink(collection,1,executionContext))(Keep.both)
         .run()
 
-      implicit def randomCdrReader: BSONDocumentReader[RandomCdr] = Macros.reader[RandomCdr]
-      implicit def randomCdrWriter: BSONDocumentWriter[RandomCdr] = Macros.writer[RandomCdr]
-
       probe.sendNext(randomCdr)
+
       future.onComplete { _ =>
         val output = collection.flatMap(_.find(randomCdr).one[RandomCdr])
-        Await.result(output, 5.second).get shouldBe randomCdr
+        Await.result(output, 5.second).get shouldEqual randomCdr
       }
+      val result = for {
+        write <- future
+        read <- collection.flatMap(_.find(randomCdr).one[RandomCdr])
+      } yield read
+      Await.result(result,5.second).get shouldEqual randomCdr
+      database.foreach(_.drop())
     }
-    database.foreach(_.drop())
   }
 }
