@@ -11,11 +11,12 @@ import org.bson.Document
 import spray.json._
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import reactivemongo.akkastream._
 import reactivemongo.api._
 import reactivemongo.api.collections.bson.BSONCollection
+import reactivemongo.api.commands.MultiBulkWriteResult
 import reactivemongo.bson._
 
 object CdrToMongoReactiveStream {
@@ -33,11 +34,13 @@ object CdrToMongoReactiveStream {
 
     Flow[RandomCdr]
       .grouped(bulkSize)
-      .toMat(Sink.foreach{ (bulk: Seq[RandomCdr]) =>
-        collection.flatMap(_.insert[RandomCdr](false)(randomCdrWriter,ec).many(bulk)(ec))(ec)
-      })(Keep.right)
+      .flatMapConcat{ (bulk : Seq[RandomCdr]) =>
+        Source.fromFuture(collection.flatMap(_.insert[RandomCdr](false)(randomCdrWriter,ec).many(bulk)(ec))(ec))
+      }
+      .toMat(Sink.ignore)(Keep.right)
   }
 
+  //collection.flatMap(_.insert[RandomCdr](false)(randomCdrWriter,ec).many(bulk)(ec))(ec)
 
   def main(args: Array[String]): Unit = {
 
@@ -74,7 +77,7 @@ object CdrToMongoReactiveStream {
     val f = randomCdrThrottledSource(msisdnLength,timeRange,throughput)
       .runWith(mongodbBulkSink(collection,bulkSize,executionContext))
 
-    f.onComplete( r => println("bulkWrite done :"+r.isSuccess.toString))
+    //f.onComplete( r => println("bulkWrite done :"+r.isSuccess.toString))
     logger.info("Generated random data")
   }
 }

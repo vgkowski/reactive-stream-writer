@@ -45,11 +45,8 @@ class CdrToMongoReactiveStreamSpec extends WordSpec with Matchers {
         .run()
 
       probe.sendNext(randomCdr)
+      probe.sendComplete()
 
-      future.onComplete { _ =>
-        val output = collection.flatMap(_.find(randomCdr).one[RandomCdr])
-        Await.result(output, 5.second).get shouldEqual randomCdr
-      }
       val result = for {
         write <- future
         read <- collection.flatMap(_.find(randomCdr).one[RandomCdr])
