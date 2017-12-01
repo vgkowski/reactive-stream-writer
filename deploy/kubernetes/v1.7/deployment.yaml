@@ -1,0 +1,30 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: reactive-cdr-mongo
+  labels:
+    app: reactive-cdr-mongo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reactive-cdr-mongo
+  template:
+    metadata:
+      labels:
+        app: reactive-cdr-mongo
+    spec:
+      containers:
+      - name: reactive-cdr-mongo
+        image: vgkowski/reactive-cdr-mongo
+        env:
+        - name: "MONGO_HOST"
+          value: "CHANGE_ME"
+        - name: "MONGO_USERNAME"
+          value: "CHANGE_ME"
+        - name: "MONGO_PASSWORD"
+          value: "CHANGE_ME"
+        - name: "BULK_SIZE"
+          value: "CHANGE_ME"
+        - name: "THROUGHPUT"
+          value: "CHANGE_ME"
