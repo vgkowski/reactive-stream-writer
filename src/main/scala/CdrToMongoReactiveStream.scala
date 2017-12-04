@@ -68,7 +68,7 @@ object CdrToMongoReactiveStream {
 
     val credentials = if (username != "") username + ":" + password + "@" else ""
     val authenticationSource = if (username != "") "/" + authenticationDB else ""
-    val mongoUri = "mongodb://" + credentials + mongoHost + ":" + mongoPort + authenticationSource
+    val mongoUri = "mongodb://" + credentials + mongoHost + ":" + mongoPort + authenticationSource +"?writeConcernW=majority"
     val driver = new reactivemongo.api.MongoDriver()
     val collection = driver.connection(mongoUri).get.database(databaseName).map(_.collection(collectionName))
 
