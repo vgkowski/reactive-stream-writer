@@ -41,7 +41,7 @@ class CdrToMongoReactiveStreamSpec extends WordSpec with Matchers {
       implicit def randomCdrWriter: BSONDocumentWriter[RandomCdr] = Macros.writer[RandomCdr]
 
       val (probe, future) = TestSource.probe[RandomCdr]
-        .toMat(mongodbBulkSink(collection,1,executionContext))(Keep.both)
+        .toMat(mongodbBulkSink(collection,1,1,executionContext))(Keep.both)
         .run()
 
       probe.sendNext(randomCdr)

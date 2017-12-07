@@ -30,12 +30,12 @@ object CdrToMongoReactiveStream {
       .named("randomCdrThrottledSource")
   }
 
-  def mongodbBulkSink(collection : Future[BSONCollection], bulkSize : Int, ec: ExecutionContext) : Sink[RandomCdr,Future[Done]] = {
+  def mongodbBulkSink(collection : Future[BSONCollection], bulkSize : Int,writeParallelism: Int, ec: ExecutionContext) : Sink[RandomCdr,Future[Done]] = {
 
     Flow[RandomCdr]
       .grouped(bulkSize)
-      .flatMapConcat{ (bulk : Seq[RandomCdr]) =>
-        Source.fromFuture(collection.flatMap(_.insert[RandomCdr](false)(randomCdrWriter,ec).many(bulk)(ec))(ec))
+      .mapAsyncUnordered(writeParallelism){ (bulk : Seq[RandomCdr]) =>
+        collection.flatMap(_.insert[RandomCdr](false)(randomCdrWriter,ec).many(bulk)(ec))(ec)
       }
       .toMat(Sink.ignore)(Keep.right)
   }
@@ -53,6 +53,7 @@ object CdrToMongoReactiveStream {
     val generatorConfig = ConfigFactory.load().getConfig("generator")
     val msisdnLength = generatorConfig.getInt("msisdn-length")
     val bulkSize = generatorConfig.getInt("bulkSize")
+    val writeParallelism = generatorConfig.getInt("write-parallelism")
     val throughput = generatorConfig.getInt("throughput-per-second")
     val invalidLineProbability = generatorConfig.getDouble("invalid-line-probability")
     val timeRange = generatorConfig.getInt("cdr.timeRange")
@@ -75,7 +76,7 @@ object CdrToMongoReactiveStream {
     logger.info("Starting generation")
 
     val f = randomCdrThrottledSource(msisdnLength,timeRange,throughput)
-      .runWith(mongodbBulkSink(collection,bulkSize,executionContext))
+      .runWith(mongodbBulkSink(collection,bulkSize,writeParallelism,executionContext))
 
     //f.onComplete( r => println("bulkWrite done :"+r.isSuccess.toString))
     logger.info("Generated random data")

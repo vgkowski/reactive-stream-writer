@@ -16,11 +16,9 @@ libraryDependencies ++= {
     "com.typesafe.scala-logging" % "scala-logging_2.12" % "3.7.2",
     "ch.qos.logback" % "logback-classic" % "1.2.3",
     "io.spray" % "spray-json_2.12" % "1.3.4",
-    "org.mongodb" % "mongodb-driver-reactivestreams" % "1.6.0",
     "com.typesafe.akka" %% "akka-stream-testkit" % "2.5.6" % "test",
     "org.scalatest" %% "scalatest" % "3.0.4" % "test",
     "org.scalactic" %% "scalactic" % "3.0.4",
-    "org.mongodb.scala" %% "mongo-scala-driver" % "2.1.0",
     "org.reactivemongo" %% "reactivemongo-akkastream" % "0.12.7",
     "org.reactivemongo" %% "reactivemongo" % "0.12.7"
   )
