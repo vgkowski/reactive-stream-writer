@@ -75,7 +75,7 @@ object CdrToMongoReactiveStream {
 
     logger.info("Starting generation")
 
-    val f = randomCdrThrottledSource(msisdnLength,timeRange,throughput)
+    val f = randomCdrThrottledSource(msisdnLength,timeRange,throughput).async
       .runWith(mongodbBulkSink(collection,bulkSize,writeParallelism,executionContext))
 
     //f.onComplete( r => println("bulkWrite done :"+r.isSuccess.toString))

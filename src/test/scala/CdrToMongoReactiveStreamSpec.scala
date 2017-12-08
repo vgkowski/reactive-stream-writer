@@ -5,7 +5,6 @@ import akka.stream.testkit.scaladsl._
 import org.scalatest._
 import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.bson._
-import spray.json._
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -13,7 +12,6 @@ import scala.concurrent.{Await, Future}
 class CdrToMongoReactiveStreamSpec extends WordSpec with Matchers {
 
   import CdrToMongoReactiveStream._
-  import RandomCdrJsonProtocol._
 
   implicit val system = ActorSystem("cdr-data-generator")
   implicit val materializer = ActorMaterializer()
