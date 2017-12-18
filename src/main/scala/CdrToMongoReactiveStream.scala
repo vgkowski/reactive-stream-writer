@@ -12,8 +12,10 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object CdrToMongoReactiveStream {
 
+  // implicit used to directly write RandomCdr in mongodb without using json
   implicit def randomCdrWriter: BSONDocumentWriter[RandomCdr] = Macros.writer[RandomCdr]
 
+  // Akka stream source generating random CDR at the specified rate
   def randomCdrThrottledSource(msisdnLength : Int,timeRange : Int, throughput : Int): Source[RandomCdr,NotUsed]= {
     Source
       .fromIterator(() => Iterator.continually(RandomCdr(msisdnLength,timeRange)))
@@ -21,8 +23,8 @@ object CdrToMongoReactiveStream {
       .named("randomCdrThrottledSource")
   }
 
+  // Akka stream sink writing random CDRs to mongodb at the specified bulk size
   def mongodbBulkSink(collection : Future[BSONCollection], bulkSize : Int,writeParallelism: Int, ec: ExecutionContext) : Sink[RandomCdr,Future[Done]] = {
-
     Flow[RandomCdr]
       .grouped(bulkSize)
       .mapAsyncUnordered(writeParallelism){ (bulk : Seq[RandomCdr]) =>
@@ -31,16 +33,16 @@ object CdrToMongoReactiveStream {
       .toMat(Sink.ignore)(Keep.right)
   }
 
-  //collection.flatMap(_.insert[RandomCdr](false)(randomCdrWriter,ec).many(bulk)(ec))(ec)
-
   def main(args: Array[String]): Unit = {
 
+    // implicits for the actor ecosystem and akka stream context
     implicit val system = ActorSystem("cdr-data-generator")
     implicit val materializer = ActorMaterializer()
     implicit val executionContext = materializer.executionContext
 
     val logger = Logger("cdr-data-generator")
 
+    // configuration loading with typesafe config
     val generatorConfig = ConfigFactory.load().getConfig("generator")
     val msisdnLength = generatorConfig.getInt("msisdn-length")
     val bulkSize = generatorConfig.getInt("bulkSize")
@@ -58,14 +60,17 @@ object CdrToMongoReactiveStream {
     val databaseName = mongoConfig.getString("database")
     val collectionName = mongoConfig.getString("collection")
 
+    // mongodb connection string using credentials or not
     val credentials = if (username != "") username + ":" + password + "@" else ""
     val authenticationSource = if (username != "") "/" + authenticationDB else ""
     val mongoUri = "mongodb://" + credentials + mongoHost + ":" + mongoPort + authenticationSource +"?writeConcernW=majority"
+    // connection setup (returns futures)
     val driver = new reactivemongo.api.MongoDriver()
     val collection = driver.connection(mongoUri).get.database(databaseName).map(_.collection(collectionName))
 
     logger.info("Starting generation")
 
+    // graph building from source to sink
     val f = randomCdrThrottledSource(msisdnLength,timeRange,throughput).async
       .runWith(mongodbBulkSink(collection,bulkSize,writeParallelism,executionContext))
 

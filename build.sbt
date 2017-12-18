@@ -21,8 +21,6 @@ packageName in Docker := packageName.value
 
 version in Docker := version.value
 
-dockerExposedPorts := List(80)
-
 dockerLabels := Map("maintainer" -> "vincent.gromakowski@gmail.com")
 
 dockerBaseImage := "openjdk:9-jre"
