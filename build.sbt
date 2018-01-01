@@ -1,4 +1,4 @@
-name := "mongo-reactive-stream-app"
+name := "reactive-stream-writer"
 
 version := "1.0"
 
@@ -45,6 +45,7 @@ libraryDependencies ++= {
     "org.scalatest" %% "scalatest" % "3.0.4" % "test",
     "org.scalactic" %% "scalactic" % "3.0.4",
     "org.reactivemongo" %% "reactivemongo-akkastream" % "0.12.7",
-    "org.reactivemongo" %% "reactivemongo" % "0.12.7"
+    "org.reactivemongo" %% "reactivemongo" % "0.12.7",
+    "com.lightbend.akka" %% "akka-stream-alpakka-elasticsearch" % "0.15.1"
   )
 }
