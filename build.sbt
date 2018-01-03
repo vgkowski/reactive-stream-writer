@@ -46,6 +46,7 @@ libraryDependencies ++= {
     "org.scalactic" %% "scalactic" % "3.0.4",
     "org.reactivemongo" %% "reactivemongo-akkastream" % "0.12.7",
     "org.reactivemongo" %% "reactivemongo" % "0.12.7",
-    "com.lightbend.akka" %% "akka-stream-alpakka-elasticsearch" % "0.15.1"
+    "com.lightbend.akka" %% "akka-stream-alpakka-elasticsearch" % "0.15.1",
+    "org.elasticsearch.client" % "elasticsearch-rest-high-level-client" % "5.6.5"
   )
 }
