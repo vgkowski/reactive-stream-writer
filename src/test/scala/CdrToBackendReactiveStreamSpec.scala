@@ -18,6 +18,8 @@ import scala.util.Try
 
 class CdrToBackendReactiveStreamSpec extends WordSpec with Matchers {
 
+  import concurrent.Eventually._
+
   implicit val system = ActorSystem("cdr-data-generator")
   implicit val materializer = ActorMaterializer()
   implicit val executionContext = materializer.executionContext
@@ -55,8 +57,7 @@ class CdrToBackendReactiveStreamSpec extends WordSpec with Matchers {
 
       probe.sendNext(randomCdr)
       probe.sendComplete()
-      Thread.sleep(2000)
-      Await.result(cdrColl.find().head(),5.second) shouldEqual randomCdr
+      eventually(timeout(2 seconds), interval(500 millis)){ Await.result(cdrColl.find().head(),5.second) shouldEqual randomCdr }
       db.drop().head().onComplete(f => println("db dropped"))
     }
   }
@@ -77,10 +78,10 @@ class CdrToBackendReactiveStreamSpec extends WordSpec with Matchers {
       probe.sendNext(randomCdr)
       probe.sendComplete()
 
-      Await.result(future,5.second)
-      Thread.sleep(2000)
-      val result = highClient.search(new SearchRequest("cdr")).getHits.getAt(0).getSourceAsString.parseJson.convertTo[RandomCdr]
-      result shouldEqual randomCdr
+      eventually(timeout(2 seconds), interval(500 millis)) {
+        val result = highClient.search(new SearchRequest("cdr")).getHits.getAt(0).getSourceAsString.parseJson.convertTo[RandomCdr]
+        result shouldEqual randomCdr
+      }
       lowClient.performRequest("DELETE","/cdr")
     }
   }
