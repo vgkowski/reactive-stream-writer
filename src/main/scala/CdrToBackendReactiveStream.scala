@@ -49,6 +49,12 @@ object CdrToBackendReactiveStream {
           .async
           .runWith(mongo.mongodbBulkSink)
       }
+      case "kafka" => {
+        val kafka = Kafka(ConfigFactory.load().getConfig("kafka"),system)
+        randomCdrThrottledSource(msisdnLength,timeRange,throughput)
+          .async
+          .runWith(kafka.kafkaSink)
+      }
       case _ => logger.error("you must specify a backend among mongodb and elasticsearch")
     }
 

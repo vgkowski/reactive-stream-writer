@@ -38,12 +38,13 @@ class Mongodb(coll: MongoCollection[Document], bulkSize: Int, writeParallelism: 
   import spray.json._
 
   // Akka stream sink writing random CDRs to mongodb at the specified bulk size
-  def mongodbBulkSink : Sink[RandomCdr,NotUsed] = {
+  val mongodbBulkSink : Sink[RandomCdr,NotUsed] = {
     Flow[RandomCdr]
       .map(cdr => Document(cdr.toJson.toString()))
       .async
       .grouped(bulkSize)
       .to {
+        // restart policy is required because the connector doesn't natively manage errors
         RestartSink.withBackoff(
           minBackoff = 3.seconds,
           maxBackoff = 30.seconds,

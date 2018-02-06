@@ -46,6 +46,8 @@ libraryDependencies ++= {
     "org.scalactic" %% "scalactic" % "3.0.4",
     "com.lightbend.akka" %% "akka-stream-alpakka-elasticsearch" % "0.15.1",
     "org.elasticsearch.client" % "elasticsearch-rest-high-level-client" % "5.6.5",
-    "com.lightbend.akka" %% "akka-stream-alpakka-mongodb" % "0.15.1"
+    "com.lightbend.akka" %% "akka-stream-alpakka-mongodb" % "0.15.1",
+    "com.typesafe.akka" %% "akka-stream-kafka" % "0.19",
+    "org.apache.kafka" % "kafka-clients" % "1.0.0"
   )
 }

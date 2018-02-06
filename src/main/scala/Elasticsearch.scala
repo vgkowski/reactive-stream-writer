@@ -1,4 +1,4 @@
-import akka.Done
+import akka.{Done, NotUsed}
 import akka.stream.alpakka.elasticsearch.IncomingMessage
 import akka.stream.alpakka.elasticsearch.scaladsl.{ElasticsearchSink, ElasticsearchSinkSettings}
 import akka.stream.scaladsl.{Flow, Keep, Sink}
@@ -24,7 +24,6 @@ object Elasticsearch{
     val username = conf.getString("username")
     val password = conf.getString("password")
 
-    println(" connection info ", protocol,host,port,index,docType,username,password)
     // customize the ES client builder to authenticate
     val credentialsProvider = new BasicCredentialsProvider()
     credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username,password))
@@ -41,13 +40,15 @@ class Elasticsearch(index: String, docType: String, bulkSize: Int, implicit val 
   import RandomCdrJsonProtocol._
 
   // Akka stream sink writing random CDRs to elasticsearch at the specified bulk size
-  def elasticsearchBulkSink : Sink[RandomCdr,Future[Done]] = {
+  val elasticsearchBulkSink : Sink[RandomCdr,NotUsed] = {
     Flow[RandomCdr]
       .map{cdr: RandomCdr =>
         IncomingMessage(Some(cdr.msisdn+"-"+cdr.peer+"-"+cdr.dateTime),cdr)
       }
-      .toMat(ElasticsearchSink.typed[RandomCdr]
-        (index,docType,ElasticsearchSinkSettings(bulkSize,5000,100,true)))(Keep.right)
+      .async
+      // No restart policy is required because the connector natively manage errors
+      .to(ElasticsearchSink.typed[RandomCdr]
+        (index,docType,ElasticsearchSinkSettings(bulkSize,5000,100,true)))
   }
 
 }

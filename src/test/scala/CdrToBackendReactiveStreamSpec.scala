@@ -11,10 +11,17 @@ import org.mongodb.scala.MongoClient
 import org.mongodb.scala.bson.codecs.{DEFAULT_CODEC_REGISTRY, Macros}
 import org.scalatest._
 import spray.json._
+import org.apache.kafka.clients.admin.AdminClient
+import org.apache.kafka.clients.consumer.KafkaConsumer
+import java.util.Properties
+
+import akka.kafka.ProducerSettings
+import org.apache.kafka.common.serialization.{ByteArrayDeserializer, ByteArraySerializer, StringDeserializer, StringSerializer}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Try
+import scala.collection.JavaConverters._
 
 class CdrToBackendReactiveStreamSpec extends WordSpec with Matchers {
 
@@ -39,7 +46,7 @@ class CdrToBackendReactiveStreamSpec extends WordSpec with Matchers {
   }
 
   "mongoBulkSink" should {
-    "bulk write json document to MongoDB" in {
+    "bulk write randomCdr to MongoDB" in {
       val randomCdrCodecProvider = Macros.createCodecProvider[RandomCdr]()
       val codecRegistry = fromRegistries( fromProviders(randomCdrCodecProvider), DEFAULT_CODEC_REGISTRY )
 
@@ -63,7 +70,7 @@ class CdrToBackendReactiveStreamSpec extends WordSpec with Matchers {
   }
 
   "elasticsearchBulkSink" should {
-    "bulk write json document to Elasticsearch" in {
+    "bulk write randomCdr to Elasticsearch" in {
       import RandomCdrJsonProtocol._
       val lowClient = RestClient.builder(new HttpHost("localhost", 9200)).build()
       val highClient = new RestHighLevelClient(lowClient)
@@ -82,7 +89,37 @@ class CdrToBackendReactiveStreamSpec extends WordSpec with Matchers {
         val result = highClient.search(new SearchRequest("cdr")).getHits.getAt(0).getSourceAsString.parseJson.convertTo[RandomCdr]
         result shouldEqual randomCdr
       }
-      lowClient.performRequest("DELETE","/cdr")
+      Try(highClient.delete(new DeleteRequest("cdr")))    }
+  }
+  "kafkaSink" should {
+    "write randomCdr to Kafka " in {
+      // create connection to kafka
+      val props = new Properties()
+      props.put("bootstrap.servers","localhost:9092")
+      props.put("group.id","test-consumer-group")
+      val admin = AdminClient.create(props)
+      // delete cdr topic
+      Try(admin.deleteTopics(List("cdr").asJavaCollection))
+      // run the stream with 1 element
+      val kafka = new Kafka("cdr", ProducerSettings(system,new ByteArraySerializer, new StringSerializer).withBootstrapServers("localhost:9092"))
+      val (probe,future) = TestSource.probe[RandomCdr]
+        .toMat(kafka.kafkaSink)(Keep.both)
+        .run()
+
+      probe.sendNext(randomCdr)
+      probe.sendComplete()
+
+      // check the element has been written
+      eventually(timeout(2 seconds), interval(500 millis)) {
+        val client = new KafkaConsumer[Array[Byte],String](props,new ByteArrayDeserializer, new StringDeserializer)
+        client.subscribe(List("cdr").asJavaCollection)
+        val result = client.poll(1000L).records("cdr").asScala.head.value()
+        client.close()
+        result shouldEqual randomCdr.toString
+      }
+      // delete the topic
+      admin.deleteTopics(List("cdr").asJavaCollection)
+      admin.close()
     }
   }
 }
