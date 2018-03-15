@@ -47,7 +47,7 @@ class Elasticsearch(index: String, docType: String, bulkSize: Int, implicit val 
       }
       .async
       // No restart policy is required because the connector natively manage errors
-      .to(ElasticsearchSink.typed[RandomCdr]
+      .to(ElasticsearchSink.create[RandomCdr]
         (index,docType,ElasticsearchSinkSettings(bulkSize,5000,100,true)))
   }
 
