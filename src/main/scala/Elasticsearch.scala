@@ -1,15 +1,19 @@
-import akka.{Done, NotUsed}
+import java.io.File
+
+import akka.NotUsed
 import akka.stream.alpakka.elasticsearch.IncomingMessage
 import akka.stream.alpakka.elasticsearch.scaladsl.{ElasticsearchSink, ElasticsearchSinkSettings}
-import akka.stream.scaladsl.{Flow, Keep, Sink}
+import akka.stream.scaladsl.{Flow, Sink}
 import com.typesafe.config._
 import org.apache.http.HttpHost
 import org.apache.http.auth.{AuthScope, UsernamePasswordCredentials}
 import org.apache.http.impl.client.BasicCredentialsProvider
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
+import org.apache.http.ssl.SSLContexts
 import org.elasticsearch.client.RestClient
+import java.security.KeyStore
 
-import scala.concurrent.Future
+import scala.util.Try
 
 object Elasticsearch{
 
@@ -23,12 +27,27 @@ object Elasticsearch{
     val bulkSize = conf.getInt("bulk-size")
     val username = conf.getString("username")
     val password = conf.getString("password")
+    val keyStorePath = conf.getString("keystore-path")
 
-    // customize the ES client builder to authenticate
+    // customize the ES client builder to authenticate and use certificates
+    val truststore = KeyStore.getInstance("jks")
+    import java.nio.file.Files
+
+    val is = Files.newInputStream(new File(keyStorePath).toPath)
+    Try(truststore.load(is, keyStorePath.toCharArray)).getOrElse(is.close())
+
+    val sslBuilder = SSLContexts.custom.loadTrustMaterial(truststore, null)
+    val sslContext = sslBuilder.build
+
     val credentialsProvider = new BasicCredentialsProvider()
     credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username,password))
-    val builder = RestClient.builder(new HttpHost(host, port,protocol)).setHttpClientConfigCallback(
-      (httpClientBuilder: HttpAsyncClientBuilder) => httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider))
+
+    val builder = RestClient.builder(new HttpHost(host, port,protocol))
+      .setHttpClientConfigCallback{ (httpClientBuilder: HttpAsyncClientBuilder) =>
+        httpClientBuilder
+          .setDefaultCredentialsProvider(credentialsProvider)
+          .setSSLContext(sslContext)
+      }
     // create the ES backend
     new Elasticsearch(index,docType,bulkSize,builder.build())
   }
