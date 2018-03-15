@@ -16,7 +16,22 @@ spec:
     spec:
       containers:
       - name: reactive-stream-writer-es
-        image: vgkowski/reactive-stream-writer
+        image: vgkowski/reactive-stream-writer:1.0
+        args: ["elasticsearch"]
         env:
         - name: "ES_HOST"
-          value: "mongo-prod-0.mongo-prod.mongodb.svc.cluster.local"
+          value: "elasticsearch-vg-cluster.default.svc.cluster.local"
+        - name: "ES_PORT"
+          value: "9200"
+          name: "ES_PROTOCOL"
+          value: "https"
+          name: "ES_KEYSTORE_PATH"
+          value: "/elasticsearch/config/certs/node-keystore.jks"
+        volumeMounts:
+        - mountPath: /elasticsearch/config/certs
+          name: es-certs-vg-cluster
+      volumes:
+      - name: es-certs-vg-cluster
+        secret:
+          defaultMode: 420
+          secretName: es-certs-vg-cluster

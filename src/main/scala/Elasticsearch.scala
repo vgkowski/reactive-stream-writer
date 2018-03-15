@@ -12,6 +12,7 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
 import org.apache.http.ssl.SSLContexts
 import org.elasticsearch.client.RestClient
 import java.security.KeyStore
+import javax.net.ssl.{HostnameVerifier, SSLSession}
 
 import scala.util.Try
 
@@ -28,13 +29,14 @@ object Elasticsearch{
     val username = conf.getString("username")
     val password = conf.getString("password")
     val keyStorePath = conf.getString("keystore-path")
+    val keystorePass = conf.getString("keystore-pass")
 
     // customize the ES client builder to authenticate and use certificates
     val truststore = KeyStore.getInstance("jks")
     import java.nio.file.Files
 
     val is = Files.newInputStream(new File(keyStorePath).toPath)
-    Try(truststore.load(is, keyStorePath.toCharArray)).getOrElse(is.close())
+    Try(truststore.load(is, keystorePass.toCharArray)).getOrElse(is.close())
 
     val sslBuilder = SSLContexts.custom.loadTrustMaterial(truststore, null)
     val sslContext = sslBuilder.build
@@ -42,10 +44,15 @@ object Elasticsearch{
     val credentialsProvider = new BasicCredentialsProvider()
     credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username,password))
 
+    class hostnameVerifier extends HostnameVerifier{
+      def verify(s: String, ssl: SSLSession): Boolean = { true}
+    }
+
     val builder = RestClient.builder(new HttpHost(host, port,protocol))
       .setHttpClientConfigCallback{ (httpClientBuilder: HttpAsyncClientBuilder) =>
         httpClientBuilder
           .setDefaultCredentialsProvider(credentialsProvider)
+          .setSSLHostnameVerifier(new hostnameVerifier)
           .setSSLContext(sslContext)
       }
     // create the ES backend
