@@ -35,19 +35,19 @@ mappings in Universal ++= directory( baseDirectory.value / "src" / "main" / "res
 
 libraryDependencies ++= {
   Seq(
-    "com.typesafe.akka" % "akka-stream_2.12" % "2.5.6",
-    "com.typesafe.akka" % "akka-actor_2.12" % "2.5.6",
-    "com.typesafe" % "config" % "1.3.2",
-    "com.typesafe.scala-logging" % "scala-logging_2.12" % "3.7.2",
+    "com.typesafe.akka" % "akka-stream_2.12" % "2.5.11",
+    "com.typesafe.akka" % "akka-actor_2.12" % "2.5.11",
+    "com.typesafe" % "config" % "1.3.3",
+    "com.typesafe.scala-logging" % "scala-logging_2.12" % "3.8.0",
     "ch.qos.logback" % "logback-classic" % "1.2.3",
     "io.spray" % "spray-json_2.12" % "1.3.4",
-    "com.typesafe.akka" %% "akka-stream-testkit" % "2.5.6" % "test",
-    "org.scalatest" %% "scalatest" % "3.0.4" % "test",
-    "org.scalactic" %% "scalactic" % "3.0.4",
-    "com.lightbend.akka" %% "akka-stream-alpakka-elasticsearch" % "0.15.1",
-    "org.elasticsearch.client" % "elasticsearch-rest-high-level-client" % "5.6.5",
-    "com.lightbend.akka" %% "akka-stream-alpakka-mongodb" % "0.15.1",
+    "com.typesafe.akka" %% "akka-stream-testkit" % "2.5.11" % "test",
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
+    "org.scalactic" %% "scalactic" % "3.0.5",
+    "com.lightbend.akka" %% "akka-stream-alpakka-elasticsearch" % "0.17",
+    "org.elasticsearch.client" % "elasticsearch-rest-high-level-client" % "6.2.2",
+    "com.lightbend.akka" %% "akka-stream-alpakka-mongodb" % "0.17",
     "com.typesafe.akka" %% "akka-stream-kafka" % "0.19",
-    "org.apache.kafka" % "kafka-clients" % "1.0.0"
+    "org.apache.kafka" % "kafka-clients" % "1.0.1"
   )
 }

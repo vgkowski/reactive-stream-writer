@@ -1,0 +1,22 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: reactive-stream-writer-es
+  labels:
+    app: reactive-stream-writer-es
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: reactive-stream-writer-es
+  template:
+    metadata:
+      labels:
+        app: reactive-stream-writer-es
+    spec:
+      containers:
+      - name: reactive-stream-writer-es
+        image: vgkowski/reactive-stream-writer
+        env:
+        - name: "ES_HOST"
+          value: "mongo-prod-0.mongo-prod.mongodb.svc.cluster.local"
