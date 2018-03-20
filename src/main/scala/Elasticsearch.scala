@@ -43,7 +43,7 @@ object Elasticsearch{
           .setDefaultCredentialsProvider(credentialsProvider)
       }
       if ( protocol == "https") {
-        val truststore = KeyStore.getInstance("JKS")
+        val truststore = KeyStore.getInstance("jks")
         val is = Files.newInputStream(new File(truststorePath).toPath)
         Try(truststore.load(is, truststorePass.toCharArray)).getOrElse(is.close())
 
